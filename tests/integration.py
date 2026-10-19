@@ -8,7 +8,7 @@ import numpy as np
 from scipy.signal import correlate
 ROOT=Path(__file__).resolve().parents[1]
 ART=ROOT/'test-artifacts/obs'
-PLUGIN=ROOT/'dist/OBS-BluRay-0.1.1/obs-bluray'
+PLUGIN=ROOT/'dist/OBS-BluRay-0.2.0/obs-bluray'
 OBS=Path(os.environ.get('OBS_ROOT',str(Path(os.environ['ProgramFiles'])/'obs-studio')))
 FFMPEG=Path(os.environ.get('STREAMDESK_FFMPEG',shutil.which('ffmpeg') or 'ffmpeg'))
 HIDE=subprocess.CREATE_NO_WINDOW

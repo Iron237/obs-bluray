@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/brand">
+    <file alias="obs-bluray.svg">../assets/obs-bluray.svg</file>
+  </qresource>
+</RCC>

@@ -1,6 +1,8 @@
 # OBS Blu-ray
 
-Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.1.1**，已在 OBS 32.2.2 验证。支持 BDMV/MPLS、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
+<img src="assets/obs-bluray.svg" width="80" height="80" alt="原创蓝光节目单图标">
+
+Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.2.0**，面向 OBS 32.2.2。支持 BDMV/MPLS 选集队列、时间范围、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
 
 配套分发服务器：[StreamDesk Live Server](https://github.com/Iron237/streamdesk-live-server)。
 
@@ -9,6 +11,25 @@ Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.1.1**，已在 OBS 
 原生 libobs 插件通过有界共享内存接收独立解码进程输出的 BGRA 视频与 48kHz 双声道 float PCM。第三方 Qt/GStreamer/libbluray/libass 不载入 OBS 主进程，无外部播放器窗口。OBS 负责混音、场景、编码与推流。GPU 解码存在下载/上传，当前不是 GPU 零拷贝。
 
 解码进程负责按共用 QPC 时钟播放，画面与关联字幕均关闭 OBS 内部异步视频缓存。这样短时没有视频帧、音频仍继续时，恢复后直接呈现最新帧，避免把这次空窗积累成持续的画面延迟。没有固定音频补偿，也没有改变音频时钟策略。
+
+节目单编辑器使用独立 Qt Widgets 进程，只在配置时打开；Qt Widgets 和媒体依赖不载入 OBS 模块。播放本身不需要外部播放器窗口。
+
+窗口内置原创 SVG 图标，EXE 资源内置多尺寸 ICO；图形为光盘、播放按钮与节目列表，不使用 OBS 标志。源文件位于 `assets/obs-bluray.svg`；安装 Pillow 后可用 `python scripts/generate-icon.py` 重生成 ICO 与 PNG，图标无需网络、系统字体或外部文件才能显示。
+
+## 选集、顺播与每 MPLS 字幕
+
+1. 在蓝光源属性选择光盘目录，点击“编辑选集与每 MPLS 字幕…”。
+2. 左侧查看扫描到的 MPLS、时长、章节和 PGS 数；可添加整条 MPLS，或按当前 MPLS 的章节批量拆成候选条目。章节只表示跳转点，不自动认定为动漫集或歌曲名。
+3. 右侧为真正播放顺序：启用/停用、重命名、复制、上移/下移或删除。双击起止时间编辑，支持 `HH:mm:ss.zzz` 或秒；一条 MPLS 可以编排多个范围，队列也可跨多个 MPLS。
+4. 选择“仅播放起播集”或“按节目单顺序播放”，再选择起播集与是否循环。OBS 媒体控制支持上一集/下一集、暂停、继续、重播及本集内定位。进度和时长按当前集显示。
+5. 下方按 MPLS 保存一套字幕设置：默认选择首条盘内 PGS（无轨时关闭），也可指定 PGS 轨、外挂 ASS/SSA/SRT、字体目录和偏移。同一 MPLS 的所有分段共用该设置，外挂字幕始终按完整 MPLS 时间轴对齐，不会从分段起点重新计时。
+6. 保存并关闭编辑器，回到 OBS 点击“读取已保存节目单”，最后点击“应用/确定”。编辑与导入不会自动重启正在播放的源；取消 OBS 属性不会应用这次编辑。节目单嵌入 OBS 源设置，不依赖临时文件。
+
+启用节目单后，属性中的起播集、播放方式和循环可以直接调整；停用节目单可恢复原有单 MPLS 参数。切集会重新准备解码器，不承诺无缝切换。终点为排除边界，精度受视频帧及音频采样边界限制。
+
+可选盘内标题名和导航类型与 MPLS 分开显示：菜单标题编号不等于 MPLS 编号。可读取 `META/DL` 的导航标题名和 `META/TN/tnmt_<语言>_<MPLS>.xml` 的章节名称；有名称时导入，无名称时保留章节编号。名称合并不创建时间点，数量不一致时保留来源和匹配数。当前不执行 HDMV/BD-J 菜单程序，也不自动猜测“本体/幕后”分类。
+
+音轨列表及完整说明显示原盘语言、编码、采样率、声道、位深、码率和 PID/PES。LPCM 参数来自有界 PES 头解析；压缩音频由独立 helper 中的 MediaInfo 读取最多 4 MiB，不持续解码、不扫描全片。Atmos 只在有明确扩展标记时显示；TrueHD 本身不等于 Atmos。CBR 使用头部码率，VBR 片段估算会明确标注，未知字段不按经验补值。这里只显示源参数，送入 OBS 的音频仍为 48 kHz 双声道。
 
 ## 构建与打包
 
@@ -42,10 +63,18 @@ SDK 默认 `$env:LOCALAPPDATA/StreamDeskSDK`，可传 `--sdk` 或 `-SdkRoot`。�
 ./build/bin/bluray-core-tests.exe
 python -m pip install -r requirements-test.txt
 python tests/integration.py
+./build/bin/bluray-program-tests.exe
+./build/bin/bluray-program-editor-tests.exe -platform offscreen
+./build/bin/bluray-audio-info-tests.exe
+./build/bin/bluray-audio-probe-tests.exe
+./build/bin/bluray-disc-metadata-tests.exe
+python tests/program_integration.py
 python scripts/privacy_check.py
 ```
 
 原生 libobs 集成需 `OBS_ROOT` 和 `STREAMDESK_FFMPEG`。`RUN_HARDWARE_TESTS=1` 启用 Intel/NVIDIA 与 HEVC 测试；默认不把缺少 GPU 当作硬件验证通过。测试自动生成色块、音频和 ASS，不包含用户媒体。退出后检查解码进程回收，验证范围见 [VALIDATION.md](VALIDATION.md)。
+
+`python tests/audio_probe_fixtures.py` 可生成合成 AC-3/E-AC-3 头部探测素材。将 `OBS_BLURAY_AUDIO_PROBE_FIXTURES` 指向生成的 `test-artifacts/audio-probe-fixtures`，再运行 audio-probe 测试，可验证真实 MediaInfo DLL；未提供时只跳过该可选素材用例，规则用例仍运行。GUI 测试可指定 `PROGRAM_EDITOR_SCREENSHOT` 输出仅含合成数据的界面预览。
 
 同步专项通过不等间隔白闪/短音，对比 OBS 实际合成视频与最终混音的时钟，另记录解码源时钟，区分源时间戳与呈现缓冲。它启动独立 libobs 测试进程，不操作正在运行的 OBS：
 

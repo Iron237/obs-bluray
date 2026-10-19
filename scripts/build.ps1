@@ -13,6 +13,11 @@ if($LASTEXITCODE){throw 'Build failed'}
 if($Deploy){
     $taskBin=Join-Path $taskProject 'build/bin'
     Copy-Item "$SdkRoot/libbluray-build/src/bluray-3.dll" $taskBin -Force
+    Copy-Item -LiteralPath "$SdkRoot/mediainfo/26.10/MediaInfo.dll" -Destination $taskBin -Force
     Get-ChildItem "$SdkRoot/gstreamer/bin/*.dll" | Copy-Item -Destination $taskBin -Force
-    foreach($taskDll in @('Qt6Core.dll','Qt6Network.dll','Qt6Concurrent.dll','Qt6Test.dll')){Copy-Item "$taskQt/bin/$taskDll" $taskBin -Force}
+    foreach($taskDll in @('Qt6Core.dll','Qt6Network.dll','Qt6Concurrent.dll','Qt6Test.dll','Qt6Gui.dll','Qt6Widgets.dll','Qt6Svg.dll')){Copy-Item "$taskQt/bin/$taskDll" $taskBin -Force}
+    New-Item -ItemType Directory -Force "$taskBin/platforms" | Out-Null
+    foreach($taskPlatform in @('qwindows.dll','qoffscreen.dll')){Copy-Item -LiteralPath "$taskQt/plugins/platforms/$taskPlatform" -Destination "$taskBin/platforms" -Force}
+    New-Item -ItemType Directory -Force "$taskBin/iconengines" | Out-Null
+    Copy-Item -LiteralPath "$taskQt/plugins/iconengines/qsvgicon.dll" -Destination "$taskBin/iconengines" -Force
 }

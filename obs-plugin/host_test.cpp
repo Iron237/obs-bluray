@@ -103,6 +103,24 @@ int wmain(int argc,wchar_t **argv){
             if(obs_data_get_bool(settings,"_syncSecondSource")){second=obs_source_create("streamdesk_bluray","Second async source",settings,nullptr);require(second,"second source");obs_source_set_muted(second,true);auto *item=obs_scene_add(scene,second);vec2 scale{.25f,.25f};obs_sceneitem_set_scale(item,&scale);}
             obs_set_output_source(0,obs_scene_get_source(scene));
         }
+        if(obs_data_get_bool(settings,"_programPropertiesTest")){
+            auto *draft=obs_data_create_from_json(obs_data_get_json(settings));const std::string initialProgram=obs_data_get_string(draft,"programJson");auto *properties=obs_source_properties(source);obs_properties_apply_settings(properties,draft);require(initialProgram==obs_data_get_string(draft,"programJson"),"Initial property callbacks corrupted the saved program");
+            require(obs_property_list_item_count(obs_properties_get(properties,"programEpisode"))==3,"Enabled episode choices not loaded");
+            require(!obs_property_visible(obs_properties_get(properties,"playlist")),"Legacy playlist must be hidden in program mode");
+            require(!obs_property_visible(obs_properties_get(properties,"subtitle")),"Legacy subtitle must be hidden in program mode");
+            require(obs_property_visible(obs_properties_get(properties,"programMode")),"Program controls missing");
+            auto *audioChoices=obs_properties_get(properties,"audioTrack");require(obs_property_list_item_count(audioChoices)>1,"Program audio choices missing");require(std::string(obs_property_list_item_name(audioChoices,1)).find("LPCM")!=std::string::npos,"Detailed LPCM track label missing");require(std::string(obs_property_description(obs_properties_get(properties,"audioDetails"))).find("LPCM")!=std::string::npos,"Selected audio information not presented");
+            auto *actual=obs_source_get_settings(source);const std::string before=obs_data_get_string(actual,"programJson");obs_data_release(actual);
+            obs_data_set_string(draft,"programMode","single");obs_property_modified(obs_properties_get(properties,"programMode"),draft);
+            obs_data_set_string(draft,"programEpisode","b");obs_property_modified(obs_properties_get(properties,"programEpisode"),draft);
+            auto *program=obs_data_create_from_json(obs_data_get_string(draft,"programJson"));require(program,"Draft program did not parse");require(std::string(obs_data_get_string(program,"playMode"))=="single","Mode change not saved to draft");require(std::string(obs_data_get_string(program,"selectedEpisode"))=="b","Episode selection not saved to draft");obs_data_release(program);
+            actual=obs_source_get_settings(source);require(before==obs_data_get_string(actual,"programJson"),"Editing a draft changed the playing source");obs_data_release(actual);
+            require(obs_property_button_clicked(obs_properties_get(properties,"programDisable"),nullptr),"Disable button callback failed");
+            require(!*obs_data_get_string(draft,"programJson"),"Disable did not clear draft");require(obs_property_visible(obs_properties_get(properties,"playlist")),"Legacy controls did not return");require(!obs_property_visible(obs_properties_get(properties,"programMode")),"Program controls did not hide");
+            obs_properties_destroy(properties);obs_data_release(draft);
+            FILE *report=nullptr;fopen_s(&report,(artifact+".properties.json").c_str(),"wb");require(report,"Property test report");fputs("{\"ok\":true,\"enabledEpisodes\":3,\"draftIsolation\":true,\"legacyVisibility\":true}",report);fclose(report);
+            audio_output_disconnect(obs_get_audio(),0,mixedAudio,&mixCapture);obs_set_output_source(0,nullptr);obs_source_dec_active(source);obs_source_dec_showing(source);obs_source_release(sub);obs_source_release(source);obs_data_release(settings);obs_wait_for_destroy_queue();obs_shutdown();return 0;
+        }
         const auto attributes=GetFileAttributesW(argv[3]);if(attributes!=INVALID_FILE_ATTRIBUTES&&(attributes&FILE_ATTRIBUTE_DIRECTORY)){auto *p=obs_source_properties(source);obs_properties_apply_settings(p,settings);require(obs_property_list_item_count(obs_properties_get(p,"playlist"))>1,"No MPLS inventory");require(obs_property_list_item_count(obs_properties_get(p,"audioTrack"))>1,"No audio inventory");require(obs_property_list_item_count(obs_properties_get(p,"chapter"))>1,"No chapter inventory");obs_properties_destroy(p);}
         auto wait=[&](auto predicate,int milliseconds,const char *error){for(int i=0;i<milliseconds/20;++i){if(predicate())return;Sleep(20);}throw std::runtime_error(error);};
         if(obs_data_get_bool(settings,"_expectError")){

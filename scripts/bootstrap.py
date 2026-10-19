@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import zipfile
 import requests
 
 parser=argparse.ArgumentParser()
@@ -70,4 +71,13 @@ build=root/'libbluray-build'
 if not (build/'build.ninja').exists():
     run([sys.executable,'-m','mesonbuild.mesonmain','setup',build,source,'--vsenv','-Dbdj_jar=disabled','-Dfreetype=disabled','-Dlibxml2=disabled','-Dfontconfig=disabled','-Denable_tools=false','-Ddefault_library=shared','--buildtype=release'])
 run([sys.executable,'-m','mesonbuild.mesonmain','compile','-C',build])
+mediainfo=root/'mediainfo/26.10'
+if not (mediainfo/'MediaInfo.dll').exists():
+    archive=download('https://mediaarea.net/download/binary/libmediainfo0/26.10/MediaInfo_DLL_26.10_Windows_x64_WithoutInstaller.zip')
+    if hashlib.sha256(archive.read_bytes()).hexdigest()!='4efe172df014693732e8b64a004cf382b8599eaf86be26a9b38c0d2993e60e1d':
+        raise RuntimeError('MediaInfo SDK checksum mismatch')
+    with zipfile.ZipFile(archive) as package:
+        for name in package.namelist():
+            if not (mediainfo/name).resolve().is_relative_to(mediainfo):raise RuntimeError('Unsafe MediaInfo archive member')
+        package.extractall(mediainfo)
 print('SDK ready:',root)

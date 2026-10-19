@@ -143,8 +143,8 @@ def main():
                         help='Also test real OBS NVENC HEVC/AAC -> MPEGTS -> verbatim loopback SRT payload; implies Full HD')
     parser.add_argument('--fixture-audio-delay-ms', type=int, default=0,
                         help='Measurement negative control; a nonzero delay should fail the sync limits')
-    parser.add_argument('--module', type=Path, default=ROOT / 'dist/OBS-BluRay-0.1.1/obs-bluray/bin/64bit/obs-bluray.dll')
-    parser.add_argument('--data', type=Path, default=ROOT / 'dist/OBS-BluRay-0.1.1/obs-bluray/data')
+    parser.add_argument('--module', type=Path, default=ROOT / 'dist/OBS-BluRay-0.2.0/obs-bluray/bin/64bit/obs-bluray.dll')
+    parser.add_argument('--data', type=Path, default=ROOT / 'dist/OBS-BluRay-0.2.0/obs-bluray/data')
     parser.add_argument('--name', default='sync')
     args = parser.parse_args()
     if args.synthetic and args.fixture_audio_delay_ms:

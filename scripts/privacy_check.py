@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 ROOT=Path(__file__).resolve().parents[1]
 EXCLUDED={'.git','build','dist','test-artifacts','sdk','downloads','__pycache__'}
-OFFICIAL={'github.com','githubusercontent.com','qt.io','qt-project.org','videolan.org','freedesktop.org','gnu.org','fsf.org','ffmpeg.org','mediamtx.org','python.org','pypi.org'}
+OFFICIAL={'github.com','githubusercontent.com','qt.io','qt-project.org','videolan.org','freedesktop.org','gnu.org','fsf.org','ffmpeg.org','mediamtx.org','mediaarea.net','w3.org','python.org','pypi.org'}
 PATTERNS={
     'credential':re.compile(r'gh[pousr]_[A-Za-z0-9_]{25,}|github_pat_[A-Za-z0-9_]{25,}|sk-[A-Za-z0-9_-]{30,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}'),
     'private-key':re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
@@ -40,6 +40,11 @@ def main():
         if path.suffix.lower()=='.png':
             # Screenshots may be included; text metadata must be reviewed first.
             if any(tag in path.read_bytes() for tag in (b'tEXt',b'zTXt',b'iTXt')):findings.append((relative,0,'image-metadata'))
+            continue
+        if relative=='assets/obs-bluray.ico':
+            data=path.read_bytes()
+            # Reviewed, generated icon: fixed ICO directory header and seven sizes.
+            if len(data)<118 or data[:6]!=b'\x00\x00\x01\x00\x07\x00':findings.append((relative,0,'unexpected-icon'))
             continue
         try:text=path.read_text(encoding='utf-8-sig')
         except (UnicodeError,OSError):findings.append((relative,0,'unreviewed-binary'));continue

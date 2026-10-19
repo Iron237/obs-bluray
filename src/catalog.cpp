@@ -1,5 +1,8 @@
 #include "catalog.h"
+#include "audio_info.h"
+#include "disc_metadata.h"
 #include <gst/pbutils/pbutils.h>
+#include <libbluray/bdnav/meta_data.h>
 #include <memory>
 namespace sd {
 QString discRoot(QString path) {
@@ -36,7 +39,7 @@ QJsonObject titleJson(const BLURAY_TITLE_INFO *t) {
         const auto &clip=t->clips[i];
         clips.append(QJsonObject{{"id",QString::fromLatin1(clip.clip_id)},{"in",double(clip.in_time)/90000.0},{"out",double(clip.out_time)/90000.0},{"start",double(clip.start_time)/90000.0}});
         if(i)continue;
-        for(unsigned a=0;a<clip.audio_stream_count;++a) audio.append(QJsonObject{{"index",int(a)},{"pid",int(clip.audio_streams[a].pid)},{"language",QString::fromLatin1(reinterpret_cast<const char*>(clip.audio_streams[a].lang))},{"coding",int(clip.audio_streams[a].coding_type)}});
+        for(unsigned a=0;a<clip.audio_stream_count;++a) audio.append(QJsonObject{{"index",int(a)},{"pid",int(clip.audio_streams[a].pid)},{"language",QString::fromLatin1(reinterpret_cast<const char*>(clip.audio_streams[a].lang))},{"coding",int(clip.audio_streams[a].coding_type)},{"format",int(clip.audio_streams[a].format)},{"rate",int(clip.audio_streams[a].rate)}});
         for(unsigned a=0;a<clip.pg_stream_count;++a) subtitles.append(QJsonObject{{"index",int(a)},{"pid",int(clip.pg_streams[a].pid)},{"language",QString::fromLatin1(reinterpret_cast<const char*>(clip.pg_streams[a].lang))},{"type","PGS"}});
     }
     return {{"playlist",int(t->playlist)},{"duration",double(t->duration)/90000.0},{"angles",int(t->angle_count)},{"chapters",chapters},{"clips",clips},{"audio",audio},{"subtitles",subtitles}};
@@ -52,15 +55,30 @@ QJsonObject inspectSource(const QString &path) {
         const QString root=discRoot(path); result["kind"]="bdmv";result["root"]=root;
         std::unique_ptr<BLURAY,decltype(&bd_close)> bd(bd_open(root.toUtf8(),nullptr),bd_close);
         if(!bd)return {{"ok",false},{"error","libbluray 无法打开此光盘目录"}};
-        QJsonArray titles; double maxDuration=-1; int main=-1;
+        const auto *meta=bd_get_meta(bd.get());
+        QJsonArray discTitles;
+        if(const auto *disc=bd_get_disc_info(bd.get())){
+            for(uint32_t i=1;i<=disc->num_titles;++i){const auto *title=disc->titles?disc->titles[i]:nullptr;if(!title)continue;
+                discTitles.append(QJsonObject{{"number",int(i)},{"name",QString::fromUtf8(title->name?title->name:"")},{"navigation",title->bdj?"bdj":"hdmv"},{"objectRef",double(title->id_ref)},{"interactive",bool(title->interactive)}});
+            }
+            result["navigation"]=QJsonObject{{"titleCount",int(disc->num_titles)},{"hdmvTitles",int(disc->num_hdmv_titles)},{"bdjTitles",int(disc->num_bdj_titles)},{"topMenu",disc->top_menu!=nullptr},{"metadataAvailable",meta!=nullptr}};
+        }
+        // Disc-index title numbers identify navigation objects, not MPLS IDs.
+        // Keep optional labels separate; inferring an episode mapping is unsafe.
+        result["discTitles"]=discTitles;
+        if(meta&&meta->di_name)result["discName"]=QString::fromUtf8(meta->di_name);
+        QJsonArray titles;QHash<QString,QJsonArray> audioCache;double maxDuration=-1; int main=-1;
         QDir playlists(root+"/BDMV/PLAYLIST");
         for(const auto &p:playlists.entryList({"*.mpls"},QDir::Files)) {
             auto *info=bd_get_playlist_info(bd.get(),QFileInfo(p).completeBaseName().toUInt(),0);
-            if(!info)continue; auto t=titleJson(info);titles.append(t);
+            if(!info)continue; auto t=titleJson(info);
+            if(info->clip_count){const auto clip=QString::fromLatin1(info->clips[0].clip_id);const auto key=clip+QString::fromUtf8(QJsonDocument(t["audio"].toArray()).toJson(QJsonDocument::Compact));if(!audioCache.contains(key))audioCache.insert(key,enrichAudioTracks(root+"/BDMV/STREAM/"+clip+".m2ts",t["audio"].toArray()));t["audio"]=audioCache.value(key);}
+            titles.append(t);
             if(t["duration"].toDouble()>maxDuration){maxDuration=t["duration"].toDouble();main=int(info->playlist);}
             bd_free_title_info(info);
         }
         result["titles"]=titles;result["suggestedPlaylist"]=main;result["duration"]=maxDuration;
+        result=enrichDiscMetadata(root,result);
         QDir subdir(root+"/BDMV");
         for(const auto &s:subdir.entryList({"*.ass","*.ssa","*.srt"},QDir::Files)) {
             const auto absolute=subdir.absoluteFilePath(s);if(!external.contains(absolute))external.append(absolute);
