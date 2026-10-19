@@ -158,8 +158,10 @@ obs_properties_t *subtitleProperties(void *){
     obs_enum_sources(+[](void *param,obs_source_t *s){if(strcmp(obs_source_get_id(s),"streamdesk_bluray")==0)obs_property_list_add_string(static_cast<obs_property_t*>(param),obs_source_get_name(s),obs_source_get_uuid(s));return true;},list);
     return p;
 }
-void *create(obs_data_t *settings,obs_source_t *s){auto *data=new Source(s,false);data->update(settings);return data;}
-void *createSubtitle(obs_data_t *settings,obs_source_t *s){auto *data=new Source(s,true);data->update(settings);return data;}
+// The worker already paces frames on its shared QPC clock. OBS's buffered async
+// clock can retain a backlog after a short video-only delivery gap.
+void *create(obs_data_t *settings,obs_source_t *s){obs_source_set_async_unbuffered(s,true);auto *data=new Source(s,false);data->update(settings);return data;}
+void *createSubtitle(obs_data_t *settings,obs_source_t *s){obs_source_set_async_unbuffered(s,true);auto *data=new Source(s,true);data->update(settings);return data;}
 void destroy(void *p){delete static_cast<Source*>(p);}
 void update(void *p,obs_data_t *s){static_cast<Source*>(p)->update(s);}
 void playPause(void *p,bool pause){auto *s=static_cast<Source*>(p);if(s->session)s->session->command(pause?sdobs::pause:sdobs::resume);}
@@ -174,5 +176,5 @@ bool obs_module_load(void){
     info.media_play_pause=playPause;info.media_restart=restart;info.media_stop=stop;info.media_set_time=seek;info.media_get_time=+[](void *p)->int64_t{return static_cast<Source*>(p)->position.load();};
     info.media_get_duration=+[](void *p)->int64_t{return static_cast<Source*>(p)->duration.load();};info.media_get_state=mediaState;obs_register_source(&info);
     obs_source_info sub{};sub.id="streamdesk_bluray_subtitle";sub.type=OBS_SOURCE_TYPE_INPUT;sub.output_flags=OBS_SOURCE_ASYNC_VIDEO;sub.get_name=subtitleName;sub.create=createSubtitle;sub.destroy=destroy;sub.update=update;sub.get_properties=subtitleProperties;sub.icon_type=OBS_ICON_TYPE_TEXT;obs_register_source(&sub);
-    blog(LOG_INFO,"[OBS Blu-ray] 0.1.0 loaded (raw source + synchronized ASS source)");return true;
+    blog(LOG_INFO,"[OBS Blu-ray] 0.1.1 loaded (raw source + synchronized ASS source)");return true;
 }

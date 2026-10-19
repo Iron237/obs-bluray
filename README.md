@@ -1,12 +1,14 @@
 # OBS Blu-ray
 
-Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.1.0**，已在 OBS 32.2.2 验证。支持 BDMV/MPLS、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
+Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.1.1**，已在 OBS 32.2.2 验证。支持 BDMV/MPLS、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
 
 配套分发服务器：[StreamDesk Live Server](https://github.com/Iron237/streamdesk-live-server)。
 
 ## 架构
 
 原生 libobs 插件通过有界共享内存接收独立解码进程输出的 BGRA 视频与 48kHz 双声道 float PCM。第三方 Qt/GStreamer/libbluray/libass 不载入 OBS 主进程，无外部播放器窗口。OBS 负责混音、场景、编码与推流。GPU 解码存在下载/上传，当前不是 GPU 零拷贝。
+
+解码进程负责按共用 QPC 时钟播放，画面与关联字幕均关闭 OBS 内部异步视频缓存。这样短时没有视频帧、音频仍继续时，恢复后直接呈现最新帧，避免把这次空窗积累成持续的画面延迟。没有固定音频补偿，也没有改变音频时钟策略。
 
 ## 构建与打包
 
@@ -44,5 +46,17 @@ python scripts/privacy_check.py
 ```
 
 原生 libobs 集成需 `OBS_ROOT` 和 `STREAMDESK_FFMPEG`。`RUN_HARDWARE_TESTS=1` 启用 Intel/NVIDIA 与 HEVC 测试；默认不把缺少 GPU 当作硬件验证通过。测试自动生成色块、音频和 ASS，不包含用户媒体。退出后检查解码进程回收，验证范围见 [VALIDATION.md](VALIDATION.md)。
+
+同步专项通过不等间隔白闪/短音，对比 OBS 实际合成视频与最终混音的时钟，另记录解码源时钟，区分源时间戳与呈现缓冲。它启动独立 libobs 测试进程，不操作正在运行的 OBS：
+
+```powershell
+python tests/synchronization.py --seconds 30 --second-source
+python tests/synchronization.py --seconds 30 --decoder nvidia --fixture-format m2ts --second-source
+python tests/synchronization.py --seconds 30 --decoder nvidia --fixture-format m2ts --second-source --encode-srt
+```
+
+第二条生成 96 kHz/24-bit Blu-ray LPCM 的 M2TS，需支持 NVIDIA 解码的硬件。默认检查合成输出偏移不超过 160 ms、首尾偏移变化不超过 80 ms；这些回归上限为不同解码器的调度及 23.976 fps 帧量化留出余量，实测范围见 VALIDATION.md。0.1.1 的主画面和字幕源已关闭 OBS 异步视频缓存。可用 `--fixture-audio-delay-ms 400` 故意制造错位，确认测量会拒绝错误结果。
+
+`--encode-srt` 进一步使用真实 OBS NVENC HEVC（VBR 6000/7000 kbps、其余为 OBS 默认值）、AAC 320 kbps 和 MPEG-TS 推流模块，强制 1920×1080 / 60 fps，记录复用前编码包的 PTS/DTS/CTS，并把随机本机端口收到的 SRT 负载原样保存，再按同一 MPEG-TS 时钟测量音画内容偏移。测试会将 OBS 自带的 NVENC 探测助手复制到忽略的构建目录，不改动 OBS 安装。此模式需要已安装的 OBS NVENC、FFmpeg、rtmp-services 模块及 `srt.dll`。专项仍不包含 MediaMTX、远端播放器和小时级运行验证。
 
 插件按 GPL-2.0-or-later 提供，见 [LICENSE](LICENSE)。第三方依赖见 [THIRD_PARTY.md](THIRD_PARTY.md)。
