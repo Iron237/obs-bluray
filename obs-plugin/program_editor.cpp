@@ -48,6 +48,38 @@ bool ProgramEditor::parseTime(const QString &text, double *seconds) {
     return true;
 }
 
+void ProgramEditor::configureAppearance() {
+    QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+    // This editor deliberately uses a light surface. Pair every palette role with
+    // it instead of inheriting white text from Windows/OBS dark-mode settings.
+    QPalette palette;
+    for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+        const bool disabled = group == QPalette::Disabled;
+        const QColor text(disabled ? "#58677b" : "#202b3c");
+        palette.setColor(group, QPalette::Window, QColor("#f4f6fa"));
+        palette.setColor(group, QPalette::WindowText, text);
+        palette.setColor(group, QPalette::Base, QColor(disabled ? "#edf1f6" : "#ffffff"));
+        palette.setColor(group, QPalette::AlternateBase, QColor("#f7f9fc"));
+        palette.setColor(group, QPalette::Text, text);
+        palette.setColor(group, QPalette::Button, QColor(disabled ? "#edf1f6" : "#ffffff"));
+        palette.setColor(group, QPalette::ButtonText, text);
+        palette.setColor(group, QPalette::Highlight, QColor("#d7e7fc"));
+        palette.setColor(group, QPalette::HighlightedText, QColor("#18283c"));
+        palette.setColor(group, QPalette::PlaceholderText, QColor("#58677b"));
+        palette.setColor(group, QPalette::ToolTipBase, QColor("#ffffff"));
+        palette.setColor(group, QPalette::ToolTipText, QColor("#202b3c"));
+        palette.setColor(group, QPalette::Light, QColor("#ffffff"));
+        palette.setColor(group, QPalette::Midlight, QColor("#eaf0f7"));
+        palette.setColor(group, QPalette::Mid, QColor("#cbd5e3"));
+        palette.setColor(group, QPalette::Dark, QColor("#8797ad"));
+        palette.setColor(group, QPalette::Shadow, QColor("#58677b"));
+        palette.setColor(group, QPalette::Accent, QColor("#2563b8"));
+    }
+    // Set the helper application's palette as well: stylesheet children, popup
+    // lists and transient dialogs otherwise fall back to the system palette.
+    QApplication::setPalette(palette);
+}
+
 ProgramEditor::ProgramEditor(const QJsonObject &metadata, const QJsonObject &program, QWidget *parent)
     : QDialog(parent), metadata_(metadata), original_(program) {
     setWindowTitle(QStringLiteral("蓝光节目单 · OBS Blu-ray"));
@@ -55,16 +87,22 @@ ProgramEditor::ProgramEditor(const QJsonObject &metadata, const QJsonObject &pro
     resize(1220, 870);
     setMinimumSize(980, 720);
     setStyleSheet(QStringLiteral(
-        "QDialog{background:#f4f6fa;color:#202b3c} QGroupBox{font-weight:600;border:1px solid "
+        "QWidget{color:#202b3c} QDialog{background:#f4f6fa} QGroupBox{font-weight:600;border:1px solid "
         "#d9e0eb;border-radius:8px;margin-top:12px;padding:12px} "
         "QGroupBox::title{subcontrol-origin:margin;left:12px;padding:0 5px} "
         "QTableWidget{background:white;alternate-background-color:#f7f9fc;gridline-color:#e4e9f1;selection-background-"
         "color:#d7e7fc;selection-color:#18283c;border:1px solid #d9e0eb;border-radius:4px} "
         "QHeaderView::section{background:#eaf0f7;padding:7px;border:0;border-bottom:1px solid #d9e0eb} "
         "QPushButton{padding:7px 12px;background:white;border:1px solid #cbd5e3;border-radius:5px} "
-        "QPushButton:hover{background:#e8f1ff} QPushButton:disabled{color:#9ca6b5} "
+        "QPushButton:hover{background:#e8f1ff} QPushButton:pressed{background:#d7e7fc} "
+        "QPushButton:disabled,QLineEdit:disabled,QComboBox:disabled,QDoubleSpinBox:disabled{"
+        "color:#58677b;background:#edf1f6} "
         "QLineEdit,QComboBox,QDoubleSpinBox{background:white;padding:5px;border:1px solid #cbd5e3;border-radius:4px} "
-        "QLabel#hint{color:#607087} "
+        "QLineEdit:focus,QComboBox:focus,QDoubleSpinBox:focus,QPushButton:focus{border:1px solid #2563b8} "
+        "QComboBox QAbstractItemView{color:#202b3c;background:white;selection-background-color:#d7e7fc;"
+        "selection-color:#18283c;border:1px solid #8797ad} "
+        "QToolTip{color:#202b3c;background:white;border:1px solid #8797ad;padding:4px} "
+        "QLabel#hint{color:#52647c} "
         "QPushButton#saveProgram{background:#2563b8;color:white;border-color:#2563b8;font-weight:600}"));
     auto *root = new QVBoxLayout(this);
     root->setContentsMargins(20, 16, 20, 16);

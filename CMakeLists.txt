@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(OBSBluray VERSION 0.2.0 LANGUAGES CXX RC)
+project(OBSBluray VERSION 0.2.1 LANGUAGES CXX RC)
 if(NOT WIN32)
   message(FATAL_ERROR "Windows x64 is required")
 endif()

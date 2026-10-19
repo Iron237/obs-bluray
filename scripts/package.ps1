@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 $taskProject=Split-Path -Parent $PSScriptRoot
 $taskBin=Join-Path $taskProject 'build\bin'
-$taskPackage=Join-Path $taskProject 'dist\OBS-BluRay-0.2.0'
+$taskPackage=Join-Path $taskProject 'dist\OBS-BluRay-0.2.1'
 $taskPlugin=Join-Path $taskPackage 'obs-bluray'
 $taskData=Join-Path $taskPlugin 'data'
 $taskWorker=Join-Path $taskData 'worker'
@@ -34,5 +34,5 @@ Copy-Item -LiteralPath "$SdkRoot/mediainfo/26.10/Developers/License.html" -Desti
 Copy-Item -LiteralPath "$taskProject\THIRD_PARTY.md" -Destination $taskPackage -Force
 $taskManifest=Get-ChildItem -LiteralPath $taskPackage -File -Recurse | Where-Object Extension -in '.dll','.exe' | ForEach-Object {@{path=[IO.Path]::GetRelativePath($taskPackage,$_.FullName);sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}
 $taskManifest | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath "$taskPackage\manifest-sha256.json" -Encoding utf8
-@{name='obs-bluray';version='0.2.0';platform='windows-x64';testedObsVersion='32.2.2';sourceVideoPolicy='async-unbuffered';associatedAssPolicy='async-unbuffered';programSchema=1;binaryManifest='manifest-sha256.json'} | ConvertTo-Json | Set-Content -LiteralPath "$taskPackage\release.json" -Encoding utf8
+@{name='obs-bluray';version='0.2.1';platform='windows-x64';testedObsVersion='32.2.2';sourceVideoPolicy='async-unbuffered';associatedAssPolicy='async-unbuffered';programSchema=1;binaryManifest='manifest-sha256.json'} | ConvertTo-Json | Set-Content -LiteralPath "$taskPackage\release.json" -Encoding utf8
 Write-Output "Packaged $taskPackage"

@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
     qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", (directory + "/platforms").toUtf8());
     qputenv("QT_QPA_PLATFORM", "windows");
     QApplication app(argc, argv);
+    ProgramEditor::configureAppearance();
     app.setWindowIcon(QIcon(QStringLiteral(":/brand/obs-bluray.svg")));
     app.setApplicationName("OBS Blu-ray Program Editor");
     app.setOrganizationName("StreamDesk");

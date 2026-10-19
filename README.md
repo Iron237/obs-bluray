@@ -2,7 +2,7 @@
 
 <img src="assets/obs-bluray.svg" width="80" height="80" alt="原创蓝光节目单图标">
 
-Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.2.0**，面向 OBS 32.2.2。支持 BDMV/MPLS 选集队列、时间范围、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
+Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.2.1**，面向 OBS 32.2.2。支持 BDMV/MPLS 选集队列、时间范围、音轨/章节、CPU/NVIDIA/Intel 解码、蓝光 LPCM、外挂 ASS/SSA/SRT 和盘内 PGS。
 
 配套分发服务器：[StreamDesk Live Server](https://github.com/Iron237/streamdesk-live-server)。
 
@@ -13,6 +13,8 @@ Windows x64 原生 OBS 蓝光输入插件，当前版本 **0.2.0**，面向 OBS 
 解码进程按共用 QPC 时钟播放；画面和关联字幕均关闭 OBS 内部异步视频缓存。这样，在短时无视频帧而音频仍继续的情况下，恢复后会直接呈现最新帧，避免将这段空窗积累成持续的画面延迟。没有固定音频补偿，也未改变音频时钟策略。
 
 节目单编辑器使用独立 Qt Widgets 进程，只在配置时打开；Qt Widgets 和媒体依赖不载入 OBS 模块。播放本身不需要外部播放器窗口。
+
+编辑器使用完整浅色调色板与 Fusion 控件样式，避免 Windows 深色模式下出现白底白字。文字、表格、下拉列表、禁用输入和提示均使用配套颜色；此设置只影响独立编辑器。
 
 窗口内置原创 SVG 图标，EXE 资源内置多尺寸 ICO；图形为光盘、播放按钮与节目列表，不使用 OBS 标志。源文件位于 `assets/obs-bluray.svg`；安装 Pillow 后可用 `python scripts/generate-icon.py` 重生成 ICO 与 PNG，图标无需网络、系统字体或外部文件才能显示。
 

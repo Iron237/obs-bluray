@@ -1,6 +1,8 @@
-# Validation: 0.2.0
+# Validation: 0.2.1
 
 Windows x64 / OBS 32.2.2, Qt 6.8.3, GStreamer 1.26.10 and MediaInfo 26.10. Tests generate synthetic media and XML; original media, paths, runtime configurations and capture logs remain local and ignored. The running OBS installation has not been replaced.
+
+0.2.1 changes the separate program editor's appearance initialization and styles. All six suites were rerun successfully, with 16 editor checks and additional light/dark renders at 150% and 200% scale. Before the fix, the dark-palette replay rendered ordinary buttons and unselected table text white on white (1:1 contrast). After the fix these cases pass. The media/hardware/SRT runtime measurements below are retained from 0.2.0; playback behavior is unchanged by this UI correction.
 
 ## Automated checks
 
@@ -8,7 +10,7 @@ All six CTest suites pass with synthetic audio fixtures and the optional GUI scr
 
 - Core: 10 QtTest checks for LPCM, validation, quoting, timestamp rebasing and configuration handling.
 - Program model: 31 checks, including invalid-schema data rows, legacy compatibility, enabled ordering, single/sequence/loop navigation, MPLS ranges and subtitle configuration.
-- Editor: 14 checks for range parsing, ordering, chapter candidates/names, per-MPLS subtitles, atomic save, cancel, navigation-title isolation, embedded SVG loading and a synthetic screenshot.
+- Editor: 16 checks for range parsing, ordering, chapter candidates/names, per-MPLS subtitles, atomic save, cancel, navigation-title isolation, embedded SVG loading and synthetic screenshots. Light/dark system-palette regression cases reproduce the former white-on-white table/button text, then verify at least 4.5:1 text contrast after the standalone application's appearance initialization. The complete light palette also covers popup lists, inactive selections, disabled controls and tooltips; Fusion avoids mixing native dark controls with light surfaces.
 - Audio details: 14 checks for TS/M2TS, LPCM sample rate/channels/depth, 4.608/2.304 Mbps calculations, malformed/partial headers and the 4 MiB limit.
 - Compressed-audio probe: 16 checks with no skips. Real MediaInfo buffer parsing identifies synthetic AC-3 5.1/48 kHz/640 kbps and E-AC-3 stereo/48 kHz/384 kbps by PID. Mock reports verify Atmos/JOC evidence, ambiguity rejection and CBR versus prefix-estimate handling. No genuine Atmos disc sample was available, so actual Atmos-disc detection is not claimed as tested.
 - Optional BDMV XML: 12 checks for DL/TN names, language preference, malformed files, namespace handling, bounded input, DTD/entity rejection, partial chapter-name matching and no invented playlist/time mapping.

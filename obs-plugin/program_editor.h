@@ -12,6 +12,8 @@ class QLabel;
 // A separate process owns this widget; the OBS module never loads Qt Widgets.
 class ProgramEditor final : public QDialog {
   public:
+    // Initialize the isolated helper process before creating any widgets.
+    static void configureAppearance();
     explicit ProgramEditor(const QJsonObject &metadata, const QJsonObject &program = {}, QWidget *parent = nullptr);
     QJsonObject program(QString *error = nullptr);
     bool saveToFile(const QString &path, QString *error = nullptr);

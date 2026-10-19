@@ -1,6 +1,7 @@
 #include "program_editor.h"
 #include <QtTest>
 #include <QtWidgets>
+#include <cmath>
 
 namespace {
 QJsonObject metadata() {
@@ -34,12 +35,21 @@ void click(ProgramEditor &editor, const char *name) {
     widget->click();
 }
 QTableWidget *entries(ProgramEditor &editor) { return editor.findChild<QTableWidget *>("programEntries"); }
+double luminance(const QColor &color) {
+    auto linear = [](double value) { return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4); };
+    return 0.2126 * linear(color.redF()) + 0.7152 * linear(color.greenF()) + 0.0722 * linear(color.blueF());
+}
+double contrast(const QColor &first, const QColor &second) {
+    const auto a = luminance(first), b = luminance(second);
+    return (qMax(a, b) + 0.05) / (qMin(a, b) + 0.05);
+}
 } // namespace
 
 class ProgramEditorTest : public QObject {
     Q_OBJECT
   private slots:
     void initTestCase() {
+        ProgramEditor::configureAppearance();
         // Offscreen Qt has no Windows font discovery; load installed fonts for visual QA.
         const QDir fonts(qEnvironmentVariable("WINDIR") + "/Fonts");
         for (const QString &name : {QString("segoeui.ttf"), QString("msyh.ttc")}) {
@@ -68,6 +78,74 @@ class ProgramEditorTest : public QObject {
         QVERIFY(!icon.pixmap(24, 24).isNull());
         ProgramEditor editor(metadata());
         QVERIFY(!editor.windowIcon().isNull());
+    }
+    void readableUnderSystemPalette_data() {
+        QTest::addColumn<bool>("dark");
+        QTest::newRow("light") << false;
+        QTest::newRow("dark") << true;
+    }
+    void readableUnderSystemPalette() {
+        QFETCH(bool, dark);
+        const auto original = QApplication::palette();
+        const auto restore = qScopeGuard([&] { QApplication::setPalette(original); });
+        auto system = original;
+        for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+            for (auto role : {QPalette::Window, QPalette::Base, QPalette::Button})
+                system.setColor(group, role, dark ? QColor("#202020") : QColor("#ffffff"));
+            for (auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText})
+                system.setColor(group, role, dark ? QColor("#ffffff") : QColor("#202020"));
+        }
+        QApplication::setPalette(system);
+        // Exercise the same initialization used by the standalone executable.
+        ProgramEditor::configureAppearance();
+        auto meta = metadata();
+        meta["navigation"] = QJsonObject{{"titleCount", 3}, {"hdmvTitles", 3}, {"bdjTitles", 0}};
+        ProgramEditor editor(meta);
+        editor.show();
+        QApplication::processEvents();
+        auto readable = [](QWidget *widget, QPalette::ColorRole foreground, QPalette::ColorRole background,
+                           QPalette::ColorGroup group, double minimum) {
+            const auto palette = widget->palette();
+            const auto ink = palette.color(group, foreground), paper = palette.color(group, background);
+            const auto message = QString("%1/%2 contrast %3 (%4 on %5)")
+                                     .arg(widget->metaObject()->className(), widget->objectName())
+                                     .arg(contrast(ink, paper)).arg(ink.name(), paper.name());
+            QVERIFY2(contrast(ink, paper) >= minimum, qPrintable(message));
+        };
+        for (auto *label : editor.findChildren<QLabel *>())
+            readable(label, QPalette::WindowText, QPalette::Window, QPalette::Active, 4.5);
+        for (auto *button : editor.findChildren<QPushButton *>())
+            readable(button, QPalette::ButtonText, QPalette::Button,
+                     button->isEnabled() ? QPalette::Active : QPalette::Disabled, 4.5);
+        for (auto *table : editor.findChildren<QTableWidget *>()) {
+            readable(table, QPalette::Text, QPalette::Base, QPalette::Active, 4.5);
+            readable(table, QPalette::Text, QPalette::AlternateBase, QPalette::Inactive, 4.5);
+            readable(table, QPalette::HighlightedText, QPalette::Highlight, QPalette::Active, 4.5);
+            readable(table->horizontalHeader(), QPalette::ButtonText, QPalette::Button, QPalette::Active, 4.5);
+        }
+        for (auto *combo : editor.findChildren<QComboBox *>()) {
+            readable(combo, QPalette::Text, QPalette::Base,
+                     combo->isEnabled() ? QPalette::Active : QPalette::Disabled, 4.5);
+            readable(combo->view(), QPalette::Text, QPalette::Base, QPalette::Active, 4.5);
+        }
+        for (auto *input : editor.findChildren<QLineEdit *>())
+            readable(input, QPalette::Text, QPalette::Base,
+                     input->isEnabled() ? QPalette::Active : QPalette::Disabled, 4.5);
+        auto *subMode = editor.findChild<QComboBox *>("subtitleMode");
+        subMode->setCurrentIndex(subMode->findData("external"));
+        auto *input = editor.findChild<QLineEdit *>("subtitleFile");
+        input->setText(QStringLiteral("synthetic.ass"));
+        input->setFocus();
+        readable(input, QPalette::Text, QPalette::Base, QPalette::Active, 4.5);
+        readable(input, QPalette::PlaceholderText, QPalette::Base, QPalette::Active, 4.5);
+        entries(editor)->editItem(entries(editor)->item(0, 1));
+        QApplication::processEvents();
+        for (auto *cellEditor : entries(editor)->findChildren<QLineEdit *>())
+            readable(cellEditor, QPalette::Text, QPalette::Base, QPalette::Active, 4.5);
+        const auto screenshot = qEnvironmentVariable("PROGRAM_EDITOR_SCREENSHOT");
+        if (!screenshot.isEmpty())
+            QVERIFY(editor.grab().save(QFileInfo(screenshot).dir().filePath(
+                dark ? "program-editor-dark.png" : "program-editor-light.png")));
     }
     void defaultDoesNotGuessEpisodes() {
         ProgramEditor editor(metadata());
